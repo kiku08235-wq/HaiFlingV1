@@ -1,0 +1,164 @@
+-- Haidz Fling GUI v2.4 - FIX TOÀN DIỆN + ĐA NGƯỜI
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local CoreGui = game:GetService("CoreGui")
+
+-- Biến toàn cục
+local selectedTargets = {}
+local flingConnections = {}
+local guiPosition
+local originalCFrame
+
+-- Tạo GUI
+local function createFlingGUI()
+	if CoreGui:FindFirstChild("HaidzFlingGui") then
+		CoreGui.HaidzFlingGui:Destroy()
+	end
+
+	local gui = Instance.new("ScreenGui", CoreGui)
+	gui.Name = "HaidzFlingGui"
+	gui.ResetOnSpawn = false
+
+	local mainFrame = Instance.new("Frame", gui)
+	mainFrame.Size = UDim2.new(0, 300, 0, 300)
+	mainFrame.Position = guiPosition or UDim2.new(0.5, -150, 0.5, -150)
+	mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	mainFrame.Active = true
+	mainFrame.Draggable = true
+	mainFrame.BorderSizePixel = 0
+
+	mainFrame:GetPropertyChangedSignal("Position"):Connect(function()
+		guiPosition = mainFrame.Position
+	end)
+
+	local toggleBtn = Instance.new("TextButton", gui)
+	toggleBtn.Size = UDim2.new(0, 120, 0, 30)
+	toggleBtn.Position = UDim2.new(1, -130, 0, 10)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	toggleBtn.Text = "Ẩn Haidz"
+	toggleBtn.TextColor3 = Color3.new(1, 1, 1)
+	toggleBtn.Font = Enum.Font.SourceSansBold
+	toggleBtn.TextSize = 18
+
+	toggleBtn.MouseButton1Click:Connect(function()
+		mainFrame.Visible = not mainFrame.Visible
+		toggleBtn.Text = mainFrame.Visible and "Ẩn Haidz" or "Hiện Haidz"
+	end)
+
+	local title = Instance.new("TextLabel", mainFrame)
+	title.Size = UDim2.new(1, 0, 0, 30)
+	title.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+	title.Text = "Haidz Fling"
+	title.TextColor3 = Color3.new(1, 1, 1)
+	title.Font = Enum.Font.SourceSansBold
+	title.TextSize = 20
+
+	local scroll = Instance.new("ScrollingFrame", mainFrame)
+	scroll.Size = UDim2.new(0.9, 0, 0.55, 0)
+	scroll.Position = UDim2.new(0.05, 0, 0.15, 0)
+	scroll.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+	scroll.ScrollBarThickness = 6
+	scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+
+	local listLayout = Instance.new("UIListLayout", scroll)
+	listLayout.Padding = UDim.new(0, 4)
+	listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LocalPlayer then
+			local btn = Instance.new("TextButton", scroll)
+			btn.Size = UDim2.new(1, 0, 0, 30)
+			btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+			btn.TextColor3 = Color3.new(1, 1, 1)
+			btn.Font = Enum.Font.SourceSans
+			btn.TextSize = 18
+			btn.Text = plr.Name
+
+			btn.MouseButton1Click:Connect(function()
+				if selectedTargets[plr] then
+					selectedTargets[plr] = nil
+					btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+				else
+					selectedTargets[plr] = true
+					btn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+				end
+			end)
+
+			if selectedTargets[plr] then
+				btn.BackgroundColor3 = Color3.fromRGB(0, 100, 0)
+			end
+		end
+	end
+
+	-- Fling button
+	local flingBtn = Instance.new("TextButton", mainFrame)
+	flingBtn.Size = UDim2.new(0.9, 0, 0, 40)
+	flingBtn.Position = UDim2.new(0.05, 0, 0.75, 0)
+	flingBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+	flingBtn.TextColor3 = Color3.new(1, 1, 1)
+	flingBtn.Font = Enum.Font.SourceSansBold
+	flingBtn.TextSize = 20
+	flingBtn.Text = "Bắt đầu Fling"
+
+	local function stopFling()
+		for _, conn in pairs(flingConnections) do
+			if conn then conn:Disconnect() end
+		end
+		flingConnections = {}
+
+		local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if hrp and originalCFrame then
+			hrp.Anchored = true
+			hrp.CFrame = originalCFrame
+			task.wait(0.25)
+			hrp.Velocity = Vector3.zero
+			hrp.RotVelocity = Vector3.zero
+			task.wait(0.25)
+			hrp.Anchored = false
+		end
+
+		flingBtn.Text = "Bắt đầu Fling"
+	end
+
+	local function startFling()
+		stopFling()
+
+		local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+		if not hrp then return end
+
+		originalCFrame = hrp.CFrame
+
+		for target, _ in pairs(selectedTargets) do
+			local targetHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+			if targetHRP then
+				local conn = RunService.Heartbeat:Connect(function()
+					if not targetHRP or not hrp then return end
+					hrp.CFrame = targetHRP.CFrame
+					hrp.Velocity = Vector3.new(9e9, 9e9, 9e9)
+					hrp.RotVelocity = Vector3.new(9e9, 9e9, 9e9)
+				end)
+				table.insert(flingConnections, conn)
+			end
+		end
+
+		flingBtn.Text = "Dừng Fling"
+	end
+
+	flingBtn.MouseButton1Click:Connect(function()
+		if #flingConnections == 0 then
+			startFling()
+		else
+			stopFling()
+		end
+	end)
+
+	-- Tự tạo lại GUI khi chết, giữ trạng thái
+	LocalPlayer.CharacterAdded:Connect(function()
+		task.wait(1)
+		createFlingGUI()
+	end)
+end
+
+createFlingGUI()
